@@ -103,7 +103,7 @@ def parse_arguments():
                         help="number of epochs for training")
 
     parser.add_argument("--feedback_factor", action="store", type=int,
-                        default=100,
+                        default=1000,
                         help="number of logs to generate per epoch")
 
     parser.add_argument("--num_samples", action="store", type=int,
