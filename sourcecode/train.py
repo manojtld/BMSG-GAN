@@ -48,11 +48,11 @@ def parse_arguments():
                         help="whether the images directory contains folders or not")
 
     parser.add_argument("--sample_dir", action="store", type=str,
-                        default="samples/1/",
+                        default="samples/",
                         help="path for the generated samples directory")
 
     parser.add_argument("--model_dir", action="store", type=str,
-                        default="models/1/",
+                        default="models/",
                         help="path for saved models directory")
 
     parser.add_argument("--loss_function", action="store", type=str,
@@ -80,11 +80,11 @@ def parse_arguments():
                         help="number of epochs for training")
 
     parser.add_argument("--feedback_factor", action="store", type=int,
-                        default=1041,
+                        default=1000,
                         help="number of logs to generate per epoch")
 
     parser.add_argument("--num_samples", action="store", type=int,
-                        default=64,
+                        default=16,
                         help="number of samples to generate for creating the grid" +
                              " should be a square number preferably")
 
@@ -101,11 +101,11 @@ def parse_arguments():
                         help="save model per n epochs")
 
     parser.add_argument("--g_lr", action="store", type=float,
-                        default=0.0001,
+                        default=0.0003,
                         help="learning rate for generator")
 
     parser.add_argument("--d_lr", action="store", type=float,
-                        default=0.0004,
+                        default=0.0003,
                         help="learning rate for discriminator")
 
     parser.add_argument("--adam_beta1", action="store", type=float,
@@ -167,14 +167,14 @@ def main(args):
 
     if args.generator_file is not None:
         # load the weights into generator
-        msg_gan.gen.load_state_dict(th.load(args.generator_file))
+        msg_gan.gen.module.load_state_dict(th.load(args.generator_file))
 
     print("Generator Configuration: ")
     print(msg_gan.gen)
 
     if args.discriminator_file is not None:
         # load the weights into discriminator
-        msg_gan.dis.load_state_dict(th.load(args.discriminator_file))
+        msg_gan.dis.module.load_state_dict(th.load(args.discriminator_file))
 
     print("Discriminator Configuration: ")
     print(msg_gan.dis)
