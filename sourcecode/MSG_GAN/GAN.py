@@ -101,7 +101,7 @@ class Discriminator(th.nn.Module):
     """ Discriminator of the GAN """
 
     def __init__(self, depth=7, feature_size=512,
-                 use_eql=True, gpu_parallelize=False):
+                 use_eql=True, gpu_parallelize=True):
         """
         constructor for the class
         :param depth: total depth of the discriminator
@@ -230,7 +230,7 @@ class MSG_GAN:
         self.gen = Generator(depth, latent_size, use_eql=use_eql).to(device)
 
         # Parallelize them if required:
-        if device == th.device("cuda"):
+        if device == "cuda":
             self.gen = DataParallel(self.gen)
             self.dis = Discriminator(depth, latent_size,
                                      use_eql=use_eql, gpu_parallelize=True).to(device)
@@ -476,10 +476,11 @@ class MSG_GAN:
                     dis_optim.zero_grad()
                     gen_optim.zero_grad()
                     with th.no_grad():
-                        self.create_grid(
-                            self.gen(fixed_input) if not self.use_ema
-                            else self.gen_shadow(fixed_input),
-                            gen_img_files)
+                        if i % 2*(int(limit / feedback_factor) + 1) == 0:
+                            self.create_grid(
+                                self.gen(fixed_input) if not self.use_ema
+                                else self.gen_shadow(fixed_input),
+                                gen_img_files)
 
                 # increment the global_step:
                 global_step += 1

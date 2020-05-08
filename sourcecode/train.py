@@ -16,7 +16,7 @@ if USE_SAGEMAKER:
     import sagemaker_containers
 
 # define the device for the training script
-device = th.device("cuda" if th.cuda.is_available() else "cpu")
+device = "cuda"#th.device("cuda" if th.cuda.is_available() else "cpu")
 
 # enable fast training
 cudnn.benchmark = True
@@ -54,7 +54,7 @@ def parse_arguments():
 
     parser.add_argument("--images_dir", action="store", type=str,
                         # default="../data/celeba",
-                        default=os.environ['SM_CHANNEL_TRAINING'],
+                        default='',
                         help="path for the images directory")
 
     parser.add_argument("--folder_distributed", action="store", type=bool,
@@ -67,12 +67,12 @@ def parse_arguments():
 
     parser.add_argument("--sample_dir", action="store", type=str,
                         # default="samples/1/",
-                        default=os.environ['SM_MODEL_DIR'],
+                        default='',
                         help="path for the generated samples directory")
 
     parser.add_argument("--model_dir", action="store", type=str,
                         # default="models/1/",
-                        default=os.environ['SM_MODEL_DIR'],
+                        default='',
                         help="path for saved models directory")
 
     parser.add_argument("--loss_function", action="store", type=str,
@@ -107,7 +107,7 @@ def parse_arguments():
                         help="number of logs to generate per epoch")
 
     parser.add_argument("--num_samples", action="store", type=int,
-                        default=36,
+                        default=16,
                         help="number of samples to generate for creating the grid" +
                              " should be a square number preferably")
 
@@ -195,7 +195,7 @@ def main(args):
         msg_gan.gen.load_state_dict(th.load(args.generator_file))
 
     print("Generator Configuration: ")
-    print(msg_gan.gen)
+    # print(msg_gan.gen)
 
     if args.shadow_generator_file is not None:
         # load the weights into generator
@@ -210,7 +210,7 @@ def main(args):
         msg_gan.dis.load_state_dict(th.load(args.discriminator_file))
 
     print("Discriminator Configuration: ")
-    print(msg_gan.dis)
+    # print(msg_gan.dis)
 
     # create optimizer for generator:
     gen_optim = th.optim.Adam(msg_gan.gen.parameters(), args.g_lr,
