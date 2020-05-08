@@ -1,22 +1,13 @@
 """ script for training the MSG-GAN on given dataset """
 
-# Set to True if using in SageMaker
-USE_SAGEMAKER = False
-
 import argparse
 
-import os
 import numpy as np
 import torch as th
 from torch.backends import cudnn
 
-# sagemaker_containers required to access SageMaker environment (SM_CHANNEL_TRAINING, etc.)
-# See https://github.com/aws/sagemaker-containers
-if USE_SAGEMAKER:
-    import sagemaker_containers
-
 # define the device for the training script
-device = "cuda"#th.device("cuda" if th.cuda.is_available() else "cpu")
+device = th.device("cuda" if th.cuda.is_available() else "cpu")
 
 # enable fast training
 cudnn.benchmark = True
@@ -40,10 +31,6 @@ def parse_arguments():
                         default=None,
                         help="saved state for generator optimizer")
 
-    parser.add_argument("--shadow_generator_file", action="store", type=str,
-                        default=None,
-                        help="pretrained weights file for the shadow generator")
-
     parser.add_argument("--discriminator_file", action="store", type=str,
                         default=None,
                         help="pretrained_weights file for discriminator")
@@ -53,45 +40,35 @@ def parse_arguments():
                         help="saved state for discriminator optimizer")
 
     parser.add_argument("--images_dir", action="store", type=str,
-                        # default="../data/celeba",
-                        default='',
+                        default="../data/celeba",
                         help="path for the images directory")
 
     parser.add_argument("--folder_distributed", action="store", type=bool,
                         default=False,
                         help="whether the images directory contains folders or not")
 
-    parser.add_argument("--flip_augment", action="store", type=bool,
-                        default=True,
-                        help="whether to randomly mirror the images during training")
-
     parser.add_argument("--sample_dir", action="store", type=str,
-                        # default="samples/1/",
-                        default='',
+                        default="samples/1/",
                         help="path for the generated samples directory")
 
     parser.add_argument("--model_dir", action="store", type=str,
-                        # default="models/1/",
-                        default='',
+                        default="models/1/",
                         help="path for saved models directory")
 
     parser.add_argument("--loss_function", action="store", type=str,
                         default="relativistic-hinge",
-                        help="loss function to be used: " +
-                             "standard-gan, wgan-gp, lsgan," +
-                             "lsgan-sigmoid," +
-                             "hinge, relativistic-hinge")
+                        help="loss function to be used: 'hinge', 'relativistic-hinge'")
 
     parser.add_argument("--depth", action="store", type=int,
-                        default=6,
+                        default=5,
                         help="Depth of the GAN")
 
     parser.add_argument("--latent_size", action="store", type=int,
-                        default=512,
+                        default=256,
                         help="latent size for the generator")
 
     parser.add_argument("--batch_size", action="store", type=int,
-                        default=20,
+                        default=32,
                         help="batch_size for training")
 
     parser.add_argument("--start", action="store", type=int,
@@ -99,28 +76,36 @@ def parse_arguments():
                         help="starting epoch number")
 
     parser.add_argument("--num_epochs", action="store", type=int,
-                        default=30,
+                        default=12,
                         help="number of epochs for training")
 
     parser.add_argument("--feedback_factor", action="store", type=int,
-                        default=100,
+                        default=1041,
                         help="number of logs to generate per epoch")
 
     parser.add_argument("--num_samples", action="store", type=int,
-                        default=16,
+                        default=64,
                         help="number of samples to generate for creating the grid" +
                              " should be a square number preferably")
+
+    parser.add_argument("--gen_dilation", action="store", type=int,
+                        default=1,
+                        help="amount of dilation for the generator")
+
+    parser.add_argument("--dis_dilation", action="store", type=int,
+                        default=1,
+                        help="amount of dilation for the discriminator")
 
     parser.add_argument("--checkpoint_factor", action="store", type=int,
                         default=1,
                         help="save model per n epochs")
 
     parser.add_argument("--g_lr", action="store", type=float,
-                        default=0.003,
+                        default=0.0001,
                         help="learning rate for generator")
 
     parser.add_argument("--d_lr", action="store", type=float,
-                        default=0.003,
+                        default=0.0004,
                         help="learning rate for discriminator")
 
     parser.add_argument("--adam_beta1", action="store", type=float,
@@ -131,17 +116,9 @@ def parse_arguments():
                         default=0.99,
                         help="value of beta_2 for adam optimizer")
 
-    parser.add_argument("--use_eql", action="store", type=bool,
+    parser.add_argument("--use_spectral_norm", action="store", type=bool,
                         default=True,
-                        help="Whether to use equalized learning rate or not")
-
-    parser.add_argument("--use_ema", action="store", type=bool,
-                        default=True,
-                        help="Whether to use exponential moving averages or not")
-
-    parser.add_argument("--ema_decay", action="store", type=float,
-                        default=0.999,
-                        help="decay value for the ema")
+                        help="Whether to use spectral normalization or not")
 
     parser.add_argument("--data_percentage", action="store", type=float,
                         default=100,
@@ -152,7 +129,6 @@ def parse_arguments():
                         help="number of parallel workers for reading files")
 
     args = parser.parse_args()
-    print('args={}'.format(args))
 
     return args
 
@@ -166,7 +142,8 @@ def main(args):
     from MSG_GAN.GAN import MSG_GAN
     from data_processing.DataLoader import FlatDirectoryImageDataset, \
         get_transform, get_data_loader, FoldersDistributedDataset
-    from MSG_GAN import Losses as lses
+    from MSG_GAN.Losses import HingeGAN, RelativisticAverageHingeGAN, \
+        StandardGAN, LSGAN
 
     # create a data source:
     data_source = FlatDirectoryImageDataset if not args.folder_distributed \
@@ -175,8 +152,7 @@ def main(args):
     dataset = data_source(
         args.images_dir,
         transform=get_transform((int(np.power(2, args.depth + 1)),
-                                 int(np.power(2, args.depth + 1))),
-                                flip_horizontal=args.flip_augment))
+                                 int(np.power(2, args.depth + 1)))))
 
     data = get_data_loader(dataset, args.batch_size, args.num_workers)
     print("Total number of images in the dataset:", len(dataset))
@@ -184,33 +160,24 @@ def main(args):
     # create a gan from these
     msg_gan = MSG_GAN(depth=args.depth,
                       latent_size=args.latent_size,
-                      use_eql=args.use_eql,
-                      use_ema=args.use_ema,
-                      ema_decay=args.ema_decay,
+                      dis_dilation=args.dis_dilation,
+                      gen_dilation=args.gen_dilation,
+                      use_spectral_norm=args.use_spectral_norm,
                       device=device)
 
     if args.generator_file is not None:
         # load the weights into generator
-        print("loading generator_weights from:", args.generator_file)
         msg_gan.gen.load_state_dict(th.load(args.generator_file))
 
     print("Generator Configuration: ")
-    # print(msg_gan.gen)
-
-    if args.shadow_generator_file is not None:
-        # load the weights into generator
-        print("loading shadow_generator_weights from:",
-              args.shadow_generator_file)
-        msg_gan.gen_shadow.load_state_dict(
-            th.load(args.shadow_generator_file))
+    print(msg_gan.gen)
 
     if args.discriminator_file is not None:
         # load the weights into discriminator
-        print("loading discriminator_weights from:", args.discriminator_file)
         msg_gan.dis.load_state_dict(th.load(args.discriminator_file))
 
     print("Discriminator Configuration: ")
-    # print(msg_gan.dis)
+    print(msg_gan.dis)
 
     # create optimizer for generator:
     gen_optim = th.optim.Adam(msg_gan.gen.parameters(), args.g_lr,
@@ -220,27 +187,21 @@ def main(args):
                               [args.adam_beta1, args.adam_beta2])
 
     if args.generator_optim_file is not None:
-        print("loading gen_optim_state from:", args.generator_optim_file)
         gen_optim.load_state_dict(th.load(args.generator_optim_file))
 
     if args.discriminator_optim_file is not None:
-        print("loading dis_optim_state from:", args.discriminator_optim_file)
         dis_optim.load_state_dict(th.load(args.discriminator_optim_file))
 
     loss_name = args.loss_function.lower()
 
     if loss_name == "hinge":
-        loss = lses.HingeGAN
+        loss = HingeGAN
     elif loss_name == "relativistic-hinge":
-        loss = lses.RelativisticAverageHingeGAN
+        loss = RelativisticAverageHingeGAN
     elif loss_name == "standard-gan":
-        loss = lses.StandardGAN
+        loss = StandardGAN
     elif loss_name == "lsgan":
-        loss = lses.LSGAN
-    elif loss_name == "lsgan-sigmoid":
-        loss = lses.LSGAN_SIGMOID
-    elif loss_name == "wgan-gp":
-        loss = lses.WGAN_GP
+        loss = LSGAN
     else:
         raise Exception("Unknown loss function requested")
 
@@ -249,7 +210,7 @@ def main(args):
         data,
         gen_optim,
         dis_optim,
-        loss_fn=loss(msg_gan.dis),
+        loss_fn=loss(device, msg_gan.dis),
         num_epochs=args.num_epochs,
         checkpoint_factor=args.checkpoint_factor,
         data_percentage=args.data_percentage,
