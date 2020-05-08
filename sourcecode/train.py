@@ -99,7 +99,7 @@ def parse_arguments():
                         help="starting epoch number")
 
     parser.add_argument("--num_epochs", action="store", type=int,
-                        default=3,
+                        default=30,
                         help="number of epochs for training")
 
     parser.add_argument("--feedback_factor", action="store", type=int,
