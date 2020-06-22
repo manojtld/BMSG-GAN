@@ -476,7 +476,7 @@ class MSG_GAN:
 
                     dis_optim.zero_grad()
                     gen_optim.zero_grad()
-                    with th.no_grad():
+                    with th.no_grad(): 
                         self.create_grid(self.gen(fixed_input), gen_img_files)
 
                 if i > limit:

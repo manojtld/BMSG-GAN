@@ -68,7 +68,7 @@ def parse_arguments():
                         help="latent size for the generator")
 
     parser.add_argument("--batch_size", action="store", type=int,
-                        default=32,
+                        default=6,
                         help="batch_size for training")
 
     parser.add_argument("--start", action="store", type=int,
@@ -76,7 +76,7 @@ def parse_arguments():
                         help="starting epoch number")
 
     parser.add_argument("--num_epochs", action="store", type=int,
-                        default=12,
+                        default=40,
                         help="number of epochs for training")
 
     parser.add_argument("--feedback_factor", action="store", type=int,
@@ -84,7 +84,7 @@ def parse_arguments():
                         help="number of logs to generate per epoch")
 
     parser.add_argument("--num_samples", action="store", type=int,
-                        default=16,
+                        default=4,
                         help="number of samples to generate for creating the grid" +
                              " should be a square number preferably")
 
@@ -121,11 +121,11 @@ def parse_arguments():
                         help="Whether to use spectral normalization or not")
 
     parser.add_argument("--data_percentage", action="store", type=float,
-                        default=100,
+                        default=50,
                         help="percentage of data to use")
 
     parser.add_argument("--num_workers", action="store", type=int,
-                        default=3,
+                        default=8,
                         help="number of parallel workers for reading files")
 
     args = parser.parse_args()
@@ -167,14 +167,14 @@ def main(args):
 
     if args.generator_file is not None:
         # load the weights into generator
-        msg_gan.gen.module.load_state_dict(th.load(args.generator_file))
+        msg_gan.gen.load_state_dict(th.load(args.generator_file), strict=False)
 
     print("Generator Configuration: ")
     print(msg_gan.gen)
 
     if args.discriminator_file is not None:
         # load the weights into discriminator
-        msg_gan.dis.module.load_state_dict(th.load(args.discriminator_file))
+        msg_gan.dis.load_state_dict(th.load(args.discriminator_file), strict=False)
 
     print("Discriminator Configuration: ")
     print(msg_gan.dis)
